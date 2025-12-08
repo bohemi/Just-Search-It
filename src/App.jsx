@@ -22,7 +22,7 @@ function App() {
   // normalize and toggle save
   const toggleSave = (item) => {
     setWatchList((prev) => {
-      const idStr = String(item.id || item.imdbID || Date.now());
+      const idStr = String(item.id || item.imdbID);
       const exists = prev.find((m) => String(m.id) === idStr);
       if (exists) {
         // unsave
@@ -32,10 +32,18 @@ function App() {
         const toSave = {
           id: idStr,
           title: item.title || item.Title || "Untitled",
-          year:
-            item.year ||
-            item.Year || "",
+          year: item.year || item.Year || "",
           poster: item.poster || item.Poster || null,
+
+          // Maybe later if needed
+          
+          // plot: item.plot || item.Plot || "No summary available.",
+          // boxOffice: item.boxOffice || item.BoxOffice || "N/A",
+          // imdbRating: item.imdbRating|| "N/A",
+          // runTime: item.runtime || item.RunTime || "N/A",
+          // genre: item.genre || item.Genre || "N/A",
+          // director: item.director || item.Director || "N/A",
+          // actors: item.actors || item.Actors || "N/A",
           watched: false,
         };
         return [toSave, ...prev];

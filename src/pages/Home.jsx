@@ -1,85 +1,79 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import SearchBar from "../components/SearchBar.jsx";
 import MovieList from "../components/MovieList.jsx";
+import fetchItems from "../api/fetchItems.js";
+import ItemDetails from "./ItemDetails.jsx";
 
 export default function Home({ onToggleSave, watchList }) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [validSearch, setValidSearch] = useState("");
-
+  const [showItemDetails, setShowItemDetails] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  
   // gets its props fill from searchbar file
-  const searchingBehaviour = (term) => {
-    if (term.trim().length <= 2) {
-      setItems([]);
-      setValidSearch("Please enter more than 2 words");
+  const searchingBehaviour = async (term) => {
+    setLoading(true);
+    // get a bulk of 10 items from API
+    const APIresults = await fetchItems({ name: term });
+    if (APIresults.Error) {
+      setValidSearch("No results! Try different keywords");
+      setLoading(false);
       return;
     }
-    setValidSearch("");
-    setLoading(true);
-    setSearchTerm(term);
-    // clear old items
-    setItems([]);
-    FetchItems({ name: term, setItems, setLoading, setValidSearch });
+    for (let i = 0; i < APIresults.Search.length; i++) {
+      // omdb needs imdbID to fetch full data. but we can only make one call per imdbID.
+      // so, we loop through each item of the APIresults And get our data per call.
+      const moreData = await fetchItems({ id: APIresults.Search[i].imdbID });
+      APIresults.Search[i] = { ...APIresults.Search[i], ...moreData };
+    }
+
+    // we will normalize the data to have consistent keys
+    const normalized = (APIresults.Search || []).map((r) => ({
+      id: r.imdbID,
+      title: r.Title,
+      year: r.Year,
+      plot: r.Plot,
+      boxOffice: r.BoxOffice,
+      imdbRating: r.imdbRating,
+      runTime: r.Runtime,
+      genre: r.Genre,
+      director: r.Director,
+      actors: r.Actors,
+      poster: r.Poster,
+    }));
+
+    setValidSearch(`Found ${APIresults.Search.length} results`);
+    setItems(normalized);
+    setLoading(false);
   };
-  console.log("Items ",items);
-  
-  {
-    return loading ? (
-      <Loader />
-    ) : (
+
+  if (loading) {
+    return (
       <div className="h-screen p-2">
+        <SearchBar onFind={searchingBehaviour} />
+        <p className=" text-2xl text-center">Loading...</p>
+      </div>
+    );
+  } else {
+    return (
+      <div className="h-screen p-2">
+        <ItemDetails
+          showItemDetails={showItemDetails}
+          item={selectedItem}
+          setSelectedItem={setSelectedItem}
+          setShowItemDetails={setShowItemDetails}
+        />
         <SearchBar onFind={searchingBehaviour} />
         <p className="text-center text-lg">{validSearch}</p>
         <MovieList
           items={items}
-          searchTerm={searchTerm}
           onToggleSave={onToggleSave}
           watchList={watchList}
+          setShowItemDetails={setShowItemDetails}
+          setSelectedItem={setSelectedItem}
         />
       </div>
     );
-  }
-}
-
-function Loader() {
-  return (
-    <div className="p-5 text-center h-screen">
-      <p className="text-3xl">Loading...</p>
-    </div>
-  );
-}
-
-async function FetchItems({ name, setLoading, setItems, setValidSearch }) {
-  try {
-    const res = await fetch(
-      `https://www.omdbapi.com/?apikey=9caeb6ca&s=${name}`
-    );
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-
-    const result = await res.json();
-    console.log("API succcess ", result);
-
-    if (result.Response === "False") {
-      console.log("API fail ", result);
-      setValidSearch("Oops!! " + result.Error);
-      setLoading(false);
-      return;
-    }
-    // we will normalize the data here
-    const normalized = (result.Search || []).map((r) => ({
-      id: r.imdbID,
-      title: r.Title,
-      year: r.Year,
-      // change it later there cant be actual "N/A" value in returned data
-      poster: r.Poster !== "N/A" ? r.Poster : null
-    }));
-    setItems(normalized);
-  } catch (err) {
-    console.error("Error during fetching: ", err.message);
-  } finally {
-    setLoading(false);
   }
 }

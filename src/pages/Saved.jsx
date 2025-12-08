@@ -1,16 +1,16 @@
 // SavedList.jsx — example implementation
 export default function SavedList({ watchList = [], remove, markWatched }) {
   if (!watchList || watchList.length === 0) {
-    return <div className="p-4">Your saved list is empty.</div>;
+    return <div className="p-4 text-center">Your saved list is empty.</div>;
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 bg-blue-300 h-screen">
       {watchList.map((m) => (
         <div
           key={m.id}
           className={`flex gap-4 p-2 rounded border ${
-            m.watched ? "opacity-60 line-through" : ""
+            m.watched ? "bg-teal-300" : ""
           }`}
         >
           {m.poster ? (

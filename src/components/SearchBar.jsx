@@ -1,21 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import useDebounce from "../hooks/useDebounce.js";
 
 export default function SearchBar({ onFind }) {
-  // const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 1000);
 
-  // const onSearchInputChange = (ev) => {
-  //   setSearchInput(ev.target.value);
-  // };
-  const timerRef = useRef(null);
-
-  const handleInputChange = (ev) => {
-    const value = ev.target.value;
-    clearTimeout(timerRef.current);
-
-    timerRef.current = setTimeout(() => {
-      onFind(value);
-    }, 500);
-  };
+  useEffect(() => {
+    if (searchTerm.length > 2 && debouncedSearchTerm) {
+      onFind(debouncedSearchTerm);
+    }
+  }, [debouncedSearchTerm, onFind]);
 
   return (
     <div className="flex justify-center gap-3">
@@ -23,7 +17,7 @@ export default function SearchBar({ onFind }) {
         className="border border-dotted bg-blue-200 rounded text-center hover:bg-blue-100 p-1"
         placeholder="Search..."
         type="text"
-        onChange={handleInputChange}
+        onChange={(e) => setSearchTerm(e.target.value)}
       />
     </div>
   );
