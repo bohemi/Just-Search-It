@@ -10,9 +10,7 @@ export default function MovieCard({
   const clickedItem = () => {
     setSelectedItem(item);
     setShowItemDetails(true);
-    console.log("clicked");
   };
-  
 
   return (
     <div

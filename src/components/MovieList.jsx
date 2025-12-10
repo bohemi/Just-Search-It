@@ -21,7 +21,7 @@ export default function MovieList({
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2 h-screen">
       {items.map((m) => {
-        const idKey = String(m.id || m.imdbID || "");
+        const idKey = String(m.id || "");
         // useMemo will process every watchList items and checks if the user have
         // saved an item in watchList(local storage) then it will have the id and
         // isSaved will be true leading to changes in button text and color and vice versa

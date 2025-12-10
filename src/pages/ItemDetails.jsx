@@ -6,39 +6,55 @@ function ItemDetails({
   item,
   setSelectedItem,
   setShowItemDetails,
+  setCaching,
+  caching = [],
 }) {
   if (!showItemDetails || !item) {
-    console.log("Empty Details page");
-    return;
+    return null;
   }
-  const [plot, setPlot] = useState(item.plot || "");
+  const [plot, setPlot] = useState("Loading full plot...");
   const [videoId, setVideoId] = useState(null);
   // using ref because we dont need the re-render here.
   const modalRef = useRef(null);
 
   useEffect(() => {
-    const fetchBigPlot = async () => {
-      const response = await fetchItems({
-        id: item.id || item.imdbID,
-        plotSize: "full",
-      });
+    if (!item?.id) {
+      return;
+    }
+    // lets see if the item already exists
+    const existedItem = caching.find((key) => key.id === item.id);
+    if (existedItem) {
+      console.log("Item already exists or has been stored");
+      setVideoId(existedItem.videoId);
+      setPlot(existedItem.plot || "Plot not available");
+      return;
+    }
 
-      if (response) {
-        setPlot(response.Plot);
-
-        console.log(response);
-      }
-    };
-    fetchBigPlot();
-    
-    // fetch YouTube trailer for this item title
-    // cancels pending requests if we use or fetch new requests then the old request will not conflict
     const controller = new AbortController();
+
+    // 2. FETCH OMDB FULL PLOT
+    const fetchBigPlot = async () => {
+      try {
+        const response = await fetchItems({
+          id: item.id,
+          plotSize: "full",
+        });
+
+        if (response && response.Plot) {
+          return response.Plot;
+        }
+      } catch (err) {
+        console.error("Error fetching plot:", err);
+      }
+      return null;
+    };
+
+    // 3. FETCH YOUTUBE TRAILER
     const fetchTrailer = async () => {
       const key = import.meta.env.VITE_YT_KEY;
-      if (!key || !item.title) return;
+      if (!key || !item.title) return null;
+
       try {
-        // add trailer in the end of the search term to get the triler of the title
         const q = `${item.title} trailer`;
         const params = new URLSearchParams({
           part: "snippet",
@@ -47,23 +63,45 @@ function ItemDetails({
           maxResults: "1",
           type: "video",
         });
+
         const url = `https://www.googleapis.com/youtube/v3/search?${params.toString()}`;
         const res = await fetch(url, { signal: controller.signal });
+
         if (!res.ok) {
           console.warn("YT search failed", res.status);
-          return;
+          return null;
         }
+
         const data = await res.json();
         const vid = data?.items?.[0]?.id?.videoId || null;
-        setVideoId(vid);
+        return vid;
       } catch (err) {
-        if (err.name !== "AbortError") console.error("YT fetch error", err);
+        if (err.name !== "AbortError") {
+          console.error("YT fetch error", err);
+        }
       }
+      return null;
     };
-    fetchTrailer();
-    // useEffect cleanup function on abort
+
+    const fetchAllData = async () => {
+      const [fullPlot, vid] = await Promise.all([
+        fetchBigPlot(),
+        fetchTrailer(),
+      ]);
+      // add items plus check for duplicates too
+      setCaching((prev) => {
+        const filtered = Array.isArray(prev)
+          ? prev.filter((p) => p.id !== item.id)
+          : [];
+        return [...filtered, { id: item.id, videoId: vid, plot: fullPlot }];
+      });
+    };
+
+    fetchAllData();
+
+    // 6. Cleanup. abort pending requests if item changes
     return () => controller.abort();
-  }, [item.id, item.imdbID]);
+  }, [item?.id, caching]);
 
   const closeOverlay = () => {
     setShowItemDetails(false);
@@ -107,6 +145,18 @@ happens outside of the inner div then "!modalRef.current.contains(e.target)" thi
               className="object-fit rounded mb-3"
             />
           </div>
+          <h3 className="font-bold text-center text-lg mb-2">
+            {item.title || "Movie name N/A"}{" "}
+            <small className="text-sm">
+              ({item.year || "Release date N/A"})
+            </small>
+          </h3>
+          {/* existedItem will be undefined because find method returns undefined if it didnt find the result
+          so, never give react an undefined value */}
+          <p className="text-sm mb-4">
+            {plot || "No plot available"}
+          </p>
+
           {videoId ? (
             <div className="mb-3 flex justify-center">
               <iframe
@@ -122,13 +172,6 @@ happens outside of the inner div then "!modalRef.current.contains(e.target)" thi
           ) : (
             <div className="mb-3 text-sm text-gray-600">Video not found</div>
           )}
-          <h3 className="font-bold text-center text-lg mb-2">
-            {item.title || "Movie name N/A"}{" "}
-            <small className="text-sm">
-              ({item.year || "Release date N/A"})
-            </small>
-          </h3>
-          <p className="text-sm mb-4">{plot || "No summary available."}</p>
           <div className="grid gap-2 font-bold">
             <p>
               <span className="font-bold">Director:</span> {item.director}
